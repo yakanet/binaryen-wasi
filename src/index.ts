@@ -13,7 +13,10 @@ const module = new binaryen.Module();
   //module.setFeatures(binaryen.Features.Strings);
   addWasiFunction(module);
 
-  // Memory
+  // Initialize memory size
+  module.setMemory(1, -1)
+
+  const strings : binaryen.MemorySegment[]= [];
 
   {
     module.addFunction(
@@ -32,12 +35,10 @@ const module = new binaryen.Module();
   }
 
   {
-    module.setMemory(1, -1, "memory", [
-      {
-        data: encoder.encode("Hello world\n\0"),
-        offset: module.i32.const(0),
-      },
-    ]);
+    strings.push({
+      data: encoder.encode("Hello world\n\0"),
+      offset: module.i32.const(0),
+    })
     const funct = module.addFunction(
       "main:say_hello",
       binaryen.none,
@@ -80,11 +81,12 @@ const module = new binaryen.Module();
         ),
       ])
     );
-    //module.addFunctionExport("hello", "hello");
     module.setStart(funct);
   }
-}
 
+  // Set memory content
+  module.setMemory(1, -1, 'memory', strings)
+}
 
 // Optimizing
 if(!process.argv.includes('-O0')){
@@ -94,19 +96,17 @@ if(!process.argv.includes('-O0')){
 }
 
 // Emit
-{
+if(process.argv.includes('-o')) {
+  console.log(module.emitText());
+} else {
   using time = benchmark('writing') 
 
   await fs.rm('build', {recursive: true, force: true});
   await fs.mkdir('build', {recursive: true});
-  module.addDebugInfoFileName('build/index.map')
   await fs.writeFile("build/index.wasm", module.emitBinary());
   await fs.writeFile("build/index.wat", module.emitText());
 }
 
-if(process.argv.includes('-o')) {
-    console.log(module.emitText());
-}
 module.dispose();
 
 function benchmark(name: string) {
