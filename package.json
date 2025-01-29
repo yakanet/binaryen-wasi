@@ -1,0 +1,18 @@
+{
+  "name": "wasi-binaryen",
+  "module": "index.ts",
+  "type": "module",
+  "scripts": {
+    "start": "bun src/index.ts && wasmtime build/index.wasm",
+    "compile": "bun build --compile --outfile=compiler src/index.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "binaryen": "^121.0.0"
+  }
+}
