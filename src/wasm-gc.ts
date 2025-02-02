@@ -3,6 +3,14 @@ import binaryen, { type Pointer } from './binaryen_ext';
 
 import fs from 'node:fs'
 
+function alloc(size: number) {
+  const ptr = binaryen._malloc(size);
+  return {
+    ptr,
+    [Symbol.dispose]: () => binaryen._free(ptr)
+  }
+}
+
 function allocU32Array(u32s: number[]) {
     const ptr = binaryen._malloc(u32s.length << 2);
     let offset = ptr;
@@ -37,13 +45,11 @@ function allocU32Array(u32s: number[]) {
   );
   
   const size = binaryen._TypeBuilderGetSize(typeBuilder);
-  const out = binaryen._malloc(Math.max(4 * size, 8));
-  if (!binaryen._TypeBuilderBuildAndDispose(typeBuilder, out, out, out + 4)) {
-    binaryen._free(out);
+  using out = alloc(Math.max(4 * size, 8));
+  if (!binaryen._TypeBuilderBuildAndDispose(typeBuilder, out.ptr, out.ptr, out.ptr + 4)) {
     throw new Error('_TypeBuilderBuildAndDispose failed');
   }
-  binaryen._free(out);
-  
+
   using structNewArgs = allocU32Array([module.i32.const(1337), module.f32.const(10)]);
   const structNew = binaryen._BinaryenStructNew(module, structNewArgs.ptr, 2, tempStructHeapType);
   
@@ -53,7 +59,7 @@ function allocU32Array(u32s: number[]) {
     binaryen.f32,
     [],
     module.block(null, [
-      structNew,
+      //structNew,
       binaryen._BinaryenStructGet(module, 1, structNew, binaryen.f32, false)
     ])
   );
@@ -61,5 +67,5 @@ function allocU32Array(u32s: number[]) {
   module.addFunctionExport('_start', '_start');
 
   console.log(module.emitText())
-  fs.writeFileSync('build/wasi-gc.wasm', module.emitBinary());
+  fs.writeFileSync('build/wasm-gc.wasm', module.emitBinary());
   
